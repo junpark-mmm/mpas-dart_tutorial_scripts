@@ -1,0 +1,94 @@
+# How to create a global initial ensemble for cycling experiments.
+# Soyoung Ha (MMM/NCAR) Jun-2024
+
+1) If you have access to an ensemble of grib files, then in the
+models/mpas_atm/shell_scripts directory are:
+
+driver_initial_ens.csh
+init_mpas_grib.csh
+
+which will convert an ensemble of grib files to an ensemble
+of mpas files.
+
+2) If you do not have an ensemble of grib files but do have a single
+global analysis file, you can create an ensemble with features built 
+into the filter program itself. The idea is to add tiny perturbations 
+to the analysis, lettting them grow with cycles or over forecast times.
+
+In this case, you need to have two more executables - WPS/ungrib.exe and MPAS/init_atmosphere.
+To download and install WPS, see https://github.com/wrf-model/WPS/.
+To build MPAS for initialization and for step 2 below,
+see https://www2.mmm.ucar.edu/projects/mpas/tutorial/v8.0/index.html.
+
+Let us start with a GFS analysis (https://rda.ucar.edu/datasets/ds084.1/).
+
+1. Run WPS/ungrib.exe over the GFS file in grib format.
+   (Use namelist.wps.global to edit start_date and end_date. No worries about the rest.)
+   => FILE:YYYY-MM-DD_HH
+
+2. Run MPAS/init_atmosphere (three times with config_init_case = 7, 
+   but changing streams.init_atmosphere for the corresponding input/output files.)
+   => grid.nc, graph.info
+   => static.nc
+   => init.nc
+
+3. Run DART/models/mpas_atm/work/filter with input.nml edited as below.
+
+   &filter_nml
+   perturb_from_single_instance = .true.
+   input_state_file_list    = 'filter_in.txt'
+   output_state_file_list   = 'filter_out.txt'
+   obs_sequence_in_name     = 'obs_seq1.out'
+   
+   &model_nml
+   model_perturbation_amplitude = 0.0001   # set a small but non-zero value
+    
+   Note
+   ----
+   a) filter_in.txt has a single line as member1/init.nc 
+   (which is copied from init.nc in step 2).
+
+   b) filter_out.txt looks like
+   member1/analysis.nc
+   member2/analysis.nc
+   ... (as many members as ens_size; one per line for each member)
+
+   c) DART/models/mpas_atm/data/obs_seq1.out can be used, but the observation time 
+   at the second last line (e.g., 0   151945) should be first matched with
+   the model time in the mpas file in 'filter_in.txt'.
+
+   To find the corresponding gregorian time for the obs_seq file, use 'advance_time' as below.
+   ncdump -v xtime member1/init.nc | tail -2 | head -1 | cut -d ";" -f1 | sed -e 's/"//g'  
+   # => 2024-06-13_12:00:00
+   echo 2024-06-13_12:00:00 0 -g | ./advance_time  # =>    154661   43200
+
+   Replace the second last line in obs_seq1.out with the new time (e.g., 43200   154661).
+   (Caution: The obs_seq file has seconds and days, not days and seconds.)
+
+   d) Leave the rest of the parameters in input.nml as they are, and run filter,
+   which will perturb your single mpas file in filter_in.txt for
+   all the states listed as mpas_state_variables in &mpas_vars_nml in your input.nml,
+   then write out N ensemble members as listed in filter_out.txt.
+
+4. Run DART/models/mpas_atm/work/update_mpas_states with an updated filter_in.txt.
+   First, copy init.nc from step 2 to each member directory.
+   Then edit filter_in.txt with all the members listed as below.
+   member1/init.nc
+   member2/init.nc
+   ...
+   => These init.nc files are now updated with perturbed states in analysis.nc for each member.
+
+5. Run MPAS/atmosphere_model up to the initial cycle time in each member directory.
+   You might want to recenter the ensemble mean at the initial cycle before you get the cycling started.
+   Alternatively, you can skip this step and use initial ensemble (with tiny perturbations) generated
+   in step 4. In that case, you need to run many cycles until your ensemble spread gets saturated,
+   which might be costy. 
+   In the mesoscale applications, it is recommended to use the GFS analysis at least 7 days earlier than
+   the initial cycle time so that ensemble forecasts are run for 7 days (letting tiny perturbations grow).
+
+
+To create regional MPAS ensemble, the global ensemble produced above should be cut out for 
+the region of interest. To produce a regional file from a global MPAS file (for each member), 
+use creat_region in https://github.com/MPAS-Dev/MPAS-Limited-Area/. 
+Instructions can be found in Section 4.1 in the MPAS tutorial 
+(https://www2.mmm.ucar.edu/projects/mpas/tutorial/v8.0/index.html).

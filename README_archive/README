@@ -1,0 +1,85 @@
+# MPAS/DART Cycling
+====================
+
+This README describes a workflow at each analysis cycle with the input and output
+files specified for two ensemble members.
+
+For high-level data assimilation workflows in DART or the output files from filter 
+(e.g., files listed in `stages_to_write` in &filter_nml), see 
+https://docs.dart.ucar.edu/en/stable/guide/high-level-da-workflows.html.
+
+Two more READMEs are provided in this directory:
+README.regional_mpas for regional MPAS modeling,
+README.init_ensemble for creating initial ensemble before cycling.
+
+
+----------                         
+Workflow
+----------                         
+
+"filter_in.txt" : member1/restart.nc
+       |          member2/restart.nc
+       |
+       | as input_state_file_list in &filter_nml
+       V
+    <filter> - produces the EnKF analyses
+       |
+       | as output_state_file_list in &filter_nml
+       V
+"filter_out.txt" : member1/analysis.nc
+       |           member2/analysis.nc
+       |
+       | as input_file_list in &update_mpas_states_nml
+       V
+<update_mpas_states> - updates analysis vector in MPAS restart files for all members
+       |
+       | as output_file_list in &update_mpas_states_nml
+       V
+"filter_in.txt" : member1/restart.nc
+       |          member2/restart.nc
+       | same as input_state_file_list in &filter_nml
+       | (Warning: restart.nc are overwritten for analysis fields.)
+       V
+advance_model.csh ensemble_member_number
+(to run the MPAS model for each member with the member#/restart.nc until the next analysis time;
+ the resulting member#/restart.nc will be used as input to filter at the next analysis cycle)
+
+
+# Regional MPAS/DART
+---------------------
+For regional cycling, <update_bc> should be conducted right after <update_mpas_states>
+but before running advance_model.csh, with the namelist as below.
+
+&update_bc_nml
+  update_analysis_file_list           = 'filter_out.txt'
+  update_boundary_file_list           = 'boundary_inout.txt'
+
+Warning: lbc files listed in boundary_inout.txt will be overwritten (like restart.nc).
+
+
+-----
+Files
+-----                         
++----------------+-------------------------------------------------------------------+
+| filename       | purpose                                                           |
++================+======-============================================================+
+| input.nml      | to read the namelist - model_mod_nml and mpas_vars_nml            |
++----------------+-------------------------------------------------------------------+
+| restart.nc     | An MPAS restart file for each member, used as input (prior)       |
+|                | for filter and output (analysis) for the next model run           |
++----------------+-------------------------------------------------------------------+
+| analysis.nc    | time-variant analysis state (for each member) after assimilation  |
++----------------+-------------------------------------------------------------------+
+| mpas_init.nc   | init_template_filename for static info (ex. grid dimensions)      |
++----------------+-------------------------------------------------------------------+
+
+Note 1: File names in filter_out.txt are editable by users 
+        as long as they remain the same throughout the cycles.
+     2: restart.nc can be replaced by init.nc for the very first cycle.
+     3: For the model run in each member directory, ensure streams.atmosphere 
+        (for the model I/O streams) defines the output_interval for the restart files
+        as the cycling frequency (ex. output_interval="06:00:00" for 6-h cycling).
+     4: The restart file name defined in filter_in.txt for each member should match 
+        the restart filename_template defined in streams.atmosphere.
+     5: lbc files defined in boundary_inout.txt should match filename_template for "lbc_in" 
+        in streams.atmosphere.
