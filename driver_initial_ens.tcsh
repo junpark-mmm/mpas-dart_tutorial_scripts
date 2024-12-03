@@ -139,7 +139,6 @@ cd ${RUN_DIR}
    end
 
    @ ndecomp = $MODEL_NODES * $N_PROCS
-   @ MODEL_MEM = $MODEL_NODES * $MEM_MPAS
 
    set fgraph = ${MPAS_GRID}.graph.info.part.${ndecomp}
    if ( ! -e ${fgraph} ) then
@@ -178,7 +177,7 @@ while ( $n <= $ENS_SIZE )
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
       echo "#PBS -q ${QUEUE_MPAS}\"                                               >> advance.sed
       echo "#PBS -l walltime=${TIME_INIT}\"                                       >> advance.sed
-      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MODEL_MEM}GB\" \
+      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
                                                                                   >> advance.sed
       echo "#=================================================================="  >> advance.sed
       echo 's%${1}%'"${num}%g"                                                    >> advance.sed
@@ -227,7 +226,7 @@ while ( $n <= $ENS_SIZE )
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
       echo "#PBS -q ${QUEUE_MPAS}\"                                               >> advance.sed
       echo "#PBS -l walltime=${TIME_INIT}\"                                       >> advance.sed
-      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MODEL_MEM}GB\" \
+      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
                                                                                   >> advance.sed
       echo "#=================================================================="  >> advance.sed
       echo 's%${1}%'"${num}%g"                                                    >> advance.sed

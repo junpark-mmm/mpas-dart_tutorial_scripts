@@ -172,7 +172,6 @@ endif
    #end
 
    @ ndecomp = $MODEL_NODES * $N_PROCS
-   @ MODEL_MEM = $MODEL_NODES * $MEM_MPAS
 
    set fgraph = ${MPAS_GRID}.graph.info.part.${ndecomp}
    if ( ! -e ${fgraph} ) then
@@ -250,8 +249,6 @@ while ( $time_anl <= $time_end )
 #
   if ( $RUN_IN_PBS == yes ) then
 
-   @ FILTER_MEM = $FILTER_NODES * $MEM_FILTER
-
        # derecho
       echo "2i\"                                                                  >! filter.sed
       echo "#==================================================================\" >> filter.sed
@@ -261,7 +258,7 @@ while ( $time_anl <= $time_end )
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> filter.sed
       echo "#PBS -q ${QUEUE_FILTER}\"                                             >> filter.sed
       echo "#PBS -l walltime=${TIME_INIT}\"                                       >> filter.sed
-      echo "#PBS -l select=${FILTER_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS_ANAL}:mem=${FILTER_MEM}GB\" \
+      echo "#PBS -l select=${FILTER_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS_ANAL}:mem=${MEM_FILTER}GB\" \
                                                                                   >> filter.sed
       echo "#=================================================================="  >> filter.sed
       echo 's%${1}%'"${time_anl}%g"                                               >> filter.sed 
@@ -322,7 +319,7 @@ while ( $time_anl <= $time_end )
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
       echo "#PBS -q ${QUEUE_MPAS}\"                                               >> advance.sed
       echo "#PBS -l walltime=${TIME_INIT}\"                                       >> advance.sed
-      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MODEL_MEM}GB\" \
+      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
                                                                                   >> advance.sed
       echo "#=================================================================="  >> advance.sed
       echo 's%${1}%'"${num}%g"                                                    >> advance.sed
