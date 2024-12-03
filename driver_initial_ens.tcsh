@@ -81,9 +81,19 @@ cd ${RUN_DIR}
       endif
    end
 
-   foreach fn ( ${STREAM_ATM} ${STREAM_INIT} )
+   foreach fn ( ${STREAM_INIT} )
       if ( ! -r ${fn} || -z $fn ) then
-         if ( $USE_RESTART == "true" ) then
+         ${COPY} ${TEMPLATE_DIR}/${fn} .
+      endif
+      if ( ! $status == 0 ) then
+         echo ABORT\: We cannot find required script $fn.
+         exit
+      endif
+   end
+
+   foreach fn ( ${STREAM_ATM} ) # support two types of streams
+      if ( ! -r ${fn} || -z $fn ) then
+	 if ( $USE_RESTART == "true" ) then
              ${COPY} ${TEMPLATE_DIR}/${fn} .
          else
              ${COPY} ${TEMPLATE_DIR}/${fn}.new ${fn}
@@ -160,18 +170,19 @@ cd ${RUN_DIR}
       set n = 1
   endif
 
-${REMOVE} -rf pbslog_prep_ic
-
 while ( $n <= $ENS_SIZE )
 
+
    set num = `printf "%02d" $n` # two-digit integer like 01, 02, 03, ...
+   set job_name = "make_mpasic.${num}"
+   set jobn = `echo $job_name | cut -c1-15`  # Stupid cheyenne cannot show the full job name.
   
    if ( $RUN_IN_PBS == "yes" ) then  #  PBS queuing system
        # derecho
 
       echo "2i\"                                                                  >! advance.sed
       echo "#==================================================================\" >> advance.sed
-      echo "#PBS -N init_mpasic_${num}\"                                          >> advance.sed
+      echo "#PBS -N ${job_name}\"                                                 >> advance.sed
       echo "#PBS -j oe\"                                                          >> advance.sed 
       echo "#PBS -o ${OUTPUT_DIR}/logs/${idate}/init_mpas_${num}.log\"            >> advance.sed
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
@@ -185,12 +196,8 @@ while ( $n <= $ENS_SIZE )
       echo 's%${3}%'"${fn_param}%g"                                               >> advance.sed
 
       sed -f advance.sed ./prep_initial_ensic.tcsh >! prep_initial_ensic.pbs
-      set JOB_ID = `qsub prep_initial_ensic.pbs`
-      #${REMOVE}  prep_initial_ensic.pbs advance.sed
-      echo ${JOB_ID} | awk -F. '{  print $1}' >> pbslog_prep_ic # this is used to check dep.
-
-
-      sleep 60
+      qsub prep_initial_ensic.pbs
+      ${REMOVE}  prep_initial_ensic.pbs advance.sed
 
   else
 
@@ -206,6 +213,21 @@ while ( $n <= $ENS_SIZE )
 
 end
 
+  if ( $RUN_IN_PBS == yes ) then
+    sleep 60
+
+    # Check if all members are done advancing model.
+    set is_all_done = `qstat | grep ${jobn} | wc -l`
+    while ( $is_all_done > 0 )
+      sleep 30
+      set is_all_done = `qstat | grep ${jobn} | wc -l`
+    end
+    date
+    sleep 30
+    echo IC generation for member $num on $idate is complete
+
+  endif
+
 #
 # start loop for members for forecasts
 # create memmber directories at ${RUN_DIR}
@@ -214,13 +236,15 @@ set n = 1
 while ( $n <= $ENS_SIZE )
 
    set num = `printf "%02d" $n` # two-digit integer like 01, 02, 03, ...
+   set job_name = "init_mpas.${num}"
+   set jobn = `echo $job_name | cut -c1-15`  # Stupid cheyenne cannot show the full job name.
 
    if ( $RUN_IN_PBS == "yes" ) then  #  PBS queuing system
        # derecho
 
       echo "2i\"                                                                  >! advance.sed
       echo "#==================================================================\" >> advance.sed
-      echo "#PBS -N init_mpas_${num}\"                                            >> advance.sed
+      echo "#PBS -N ${job_name}\"                                                 >> advance.sed
       echo "#PBS -j oe\"                                                          >> advance.sed 
       echo "#PBS -o ${OUTPUT_DIR}/logs/${idate}/init_mpas_${num}.log\"            >> advance.sed
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
@@ -239,11 +263,8 @@ while ( $n <= $ENS_SIZE )
       # get JOB ID for IC generations
       # in the case of GFS, the same JOB ID employed from a single line
       #                GFSENS, it will use lines with # of ensemble
-      set IC_JOB_ID = ` head -${n} pbslog_prep_ic | tail -1`
-
-      qsub -W depend=afterok:${IC_JOB_ID} mpas_first_advance.pbs
-
-#      ${REMOVE} mpas_first_advance.pbs advance.sed
+      qsub mpas_first_advance.pbs
+      ${REMOVE} mpas_first_advance.pbs advance.sed
 
       sleep 15
 
