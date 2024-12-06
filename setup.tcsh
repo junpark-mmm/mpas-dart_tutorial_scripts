@@ -51,7 +51,7 @@ mkdir -p ${RUN_DIR} ${OBS_DIR} ${OUTPUT_DIR} ${CSH_DIR} ${EXE_DIR} ${EXTM_DIR} $
 # will Copy scripts from shell_script at DART_DIR
   echo "Copy MPAS-DART job scrpts from ${DART_DIR}"
   foreach fn ( "params.tcsh" "driver_initial_ens.tcsh" "driver_dart_advance.tcsh" "mpas_first_advance.tcsh" "mpas_advance.tcsh" \
-               "assimilate.tcsh" "download.tcsh" "prep_initial_ensic.tcsh" "run_obs_preprocess.tcsh" "run_obs_diag.tcsh" )
+               "assimilate.tcsh" "download.tcsh" "prep_initial_ens_ic.tcsh" "run_obs_preprocess.tcsh" "run_obs_diag.tcsh" )
      ## Todo ## final job scripts will be placed into DART_DIR/models/mpas_atm/shell_scripts
      #if ( ! -r ${DART_DIR}/models/mpas_atm/shell_scripts/${fn} ) then
      #   echo ABORT\: setup.tcsh could not find required readable dependency ${fn}

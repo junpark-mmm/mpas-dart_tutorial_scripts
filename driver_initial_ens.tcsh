@@ -51,7 +51,7 @@ cd ${RUN_DIR}
       endif
    end
 
-   foreach fn ( mpas_first_advance.tcsh prep_initial_ensic.tcsh )
+   foreach fn ( mpas_first_advance.tcsh prep_initial_ens_ic.tcsh )
       if ( ! -r $fn ) then
          echo ${COPY} ${CSH_DIR}/${fn} .
               ${COPY} ${CSH_DIR}/${fn} .
@@ -195,13 +195,13 @@ while ( $n <= $ENS_SIZE )
       echo 's%${2}%'"${idate}%g"                                                  >> advance.sed
       echo 's%${3}%'"${fn_param}%g"                                               >> advance.sed
 
-      sed -f advance.sed ./prep_initial_ensic.tcsh >! prep_initial_ensic.pbs
-      qsub prep_initial_ensic.pbs
-      ${REMOVE}  prep_initial_ensic.pbs advance.sed
+      sed -f advance.sed ./prep_initial_ens_ic.tcsh >! prep_initial_ens_ic.pbs
+      qsub prep_initial_ens_ic.pbs
+      ${REMOVE}  prep_initial_ens_ic.pbs advance.sed
 
   else
 
-    ./prep_initial_ensic.tcsh $num $idate $fn_param >! ${OUTPUT_DIR}/logs/${idate}/init_mpas_${num}.log
+    ./prep_initial_ens_ic.tcsh $num $idate $fn_param >! ${OUTPUT_DIR}/logs/${idate}/init_mpas_${num}.log
 
   endif
 

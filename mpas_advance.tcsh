@@ -1,10 +1,10 @@
 #!/bin/tcsh
 ########################################################################
 #
-#   mpas_first_advance.tcsh 
-#       : shell script that can be used to create an 
-#         initial MPAS ensemble forecast from prep_initial_ensic.tcsh 
-#         so the background forecasts are available for cycling
+#   mpas_advance.tcsh 
+#       : shell script that can be used to run short 
+#         MPAS-A ensemble forecast from DA analyses
+#         for cycling DA
 #
 ########################################################################
 

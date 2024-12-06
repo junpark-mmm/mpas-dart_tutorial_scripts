@@ -1,9 +1,9 @@
 #!/bin/tcsh
 ########################################################################
 #
-#   mpas_first_advance.csh 
+#   mpas_first_advance.tcsh 
 #       : shell script that can be used to create an 
-#         initial MPAS ensemble forecast from prep_initial_ensic.csh 
+#         initial MPAS ensemble forecast from prep_initial_ens_ic.tcsh 
 #         so the background forecasts are available for cycling
 #
 ########################################################################

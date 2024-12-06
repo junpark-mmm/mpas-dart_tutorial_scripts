@@ -1,6 +1,6 @@
 #!/bin/tcsh
 ######################################################################## #
-#   prep_initial_ensic.tcsh - shell script that can be used to create an 
+#   prep_initial_ens_ic.tcsh - shell script that can be used to create an 
 #                            initial MPAS ensemble from an external grib
 #                            file, two options are available.
 #
@@ -34,7 +34,7 @@
   
   foreach fn ( ${statfile} )
      if ( ! -r ${fn} ) then
-        echo ABORT\: prep_initial_ensic.tcsh could not find required readable dependency ${fn}
+        echo ABORT\: prep_initial_ens_ic.tcsh could not find required readable dependency ${fn}
         exit 1
      endif
   end
