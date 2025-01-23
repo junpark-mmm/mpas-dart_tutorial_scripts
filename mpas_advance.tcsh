@@ -5,6 +5,7 @@
 #       : shell script that can be used to run short 
 #         MPAS-A ensemble forecast from DA analyses
 #         for cycling DA
+#       - Dec 2024: updated to support 'da_state/invariant' stream
 #
 ########################################################################
 
@@ -54,17 +55,23 @@
   end
   set intv_utc = `echo $fdays + 100 | bc | cut -b2-3`_`echo $fhours + 100 | bc | cut -b2-3`:00:00
 
-# copy IC files stored at ${INIT_DIR}
+# copy IC files stored at ${OUTPUT_DIR}
    set ic_file = ${MPAS_GRID}.afterda.nc
    if ( ! -e ${ic_file} ) then
        set frst_input = afterda.`echo ${curr_utc} | sed -e 's/:/\./g'`.nc
        ${COPY} ${OUTPUT_DIR}/${idate}/${ENS_DIR}${ensemble_member}/${frst_input} ${ic_file}
-       # if using invariant and da_state
-       # copy/link invariant as well
-       # end if
        if(! -e ${ic_file}) then
           echo "Cannot find ${ic_file} from ${OUTPUT_DIR}/${idate}/${ENS_DIR}${ensemble_member}"
           exit
+       endif
+       # if using invariant and da_state
+       if ( $USE_RESTART == "false" ) then  # also copy invariant file = IC file used for initial forecast
+           set init_file = `ls -1 ${INIT_DIR}/*/${ENS_DIR}${ensemble_member}/${MPAS_GRID}.init.nc | head -1`
+           set invariant_file = ${MPAS_GRID}.invariant.nc
+           ${LINK} ${init_file} ${invariant_file}
+           if(! -e ${invariant_file}) then
+              echo "Cannot find ${invariant_file} from ${INIT_DIR}/*/${ENS_DIR}${ensemble_member}"
+           endif
        endif
    endif
 
@@ -72,16 +79,16 @@
   # IF REGIONAL
   set FLAG_REGIONAL  = false
   # Initial Spinup FCST
-  set FLAG_RESTART   = true
   set FLAG_DACYCLING = true
 
-  if ( $USE_RESTART == "true" ) then  #  PBS queuing system
+  if ( $USE_RESTART == "true" ) then
   # use traditional 'restart' stream
      set FLAG_JEDI_DA     = false
+     set FLAG_RESTART   = true
   else
   # use 'da_state' + 'invariant' stream
-  # to do
      set FLAG_JEDI_DA      = true
+     set FLAG_RESTART     = false
   endif
 
   #  Generate MPAS namelist file
@@ -103,16 +110,52 @@
   /config_jedi_da/c\
   config_jedi_da = ${FLAG_JEDI_DA}
 EOF
+
+  if ( $USE_LEN_DISP == "true" ) then
+  cat >> script.sed << EOF
+/&nhyd_model/a \
+  config_len_disp = ${LEN_DISP}
+EOF
+  endif
+
   sed -f script.sed ${RUN_DIR}/${NML_MPAS} >! ${NML_MPAS}
+
+cat >! sst.sed << EOF
+   /config_sst_update /c\
+    config_sst_update = ${SST_UPDATE}
+EOF
+mv $NML_MPAS namelist.sst
+sed -f sst.sed namelist.sst >! $NML_MPAS
+
+if ( $SST_UPDATE == true ) then
+  set fsst = `sed -n '/<stream name=\"surface\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
+              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
+  ${LINK} ${SST_DIR}/${SST_FNAME} $fsst         || exit
+else
+  echo NO SST_UPDATE...
+endif
 
   # clean out any old rsl files if exist
   if ( -e log.0000.out ) ${REMOVE} log.*
 
-  #  if USE_RESTART
+  if ( $USE_RESTART == "true" ) then
+
   cat >! streams.sed << EOF
 /<immutable_stream name="restart"/,/<\/*immutable_stream>/ {
-s/filename_template="afterda_restart.nc"/filename_template="${ic_file}"/ }
+s/filename_template="afterda_restart.nc"/filename_template="${ic_file}"/ }     
 EOF
+
+  else
+
+  cat >! streams.sed << EOF
+/<immutable_stream name="invariant"/,/<\/*immutable_stream>/ {
+s/filename_template="init.nc"/filename_template="${invariant_file}"/ }
+/<immutable_stream name="input"/,/<\/*immutable_stream>/ {
+s/filename_template="afterda_mpasout.nc"/filename_template="${ic_file}"/ }
+EOF
+
+  endif
+
   sed -f streams.sed ${RUN_DIR}/${STREAM_ATM}  >! ${STREAM_ATM}
 
   #  Run MPAS for the specified amount of time 
@@ -121,7 +164,7 @@ EOF
   mpiexec -n ${ndecomp} ./atmosphere_model   || exit 3
 #
 #  # Check the output file
-  if ( $USE_RESTART == "true" ) then  #  PBS queuing system
+  if ( $USE_RESTART == "true" ) then
   # use traditional 'restart' stream
      set frst = `sed -n '/<stream name=\"da_restart\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
                  grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`

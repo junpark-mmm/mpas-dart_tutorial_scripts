@@ -5,18 +5,20 @@
 # http://www.image.ucar.edu/DAReS/DART/DART_download
 #
 ##############################################################################################
-#  run_obs_preprocess.csh
-#  This will run mpas_dart_obs_preprocess to process obs_sequence file additionally
-# e.g., SuperOB, elevation check, QC update, ....
+#  run_obs_diag.tcsh
+#  This will run ob_diag to compute obs diagnostics from obs_sequence file
 #
-# INPUT: obs_seq${DATE}
-# OUTPUT: obs_seq${DATE}_after
+# INPUT: obs_seq.final
+# OUTPUT: obs_diag_${DATE}.nc
 #
-# the tutorial script is utilzing preprocessed obs_seq file
 # this is not using PBS
 ##############################################################################################
 
 #set echo
+set SEPARATE_DOMAIN = true # extend verification domains (5 in default; see line #197)
+                           # global,   NH,    SH,   Tropic, and CONUS
+	                   # -80~80, 20~80, -80~-20, -20~20,     20~55   ; lat
+	                   #  0~360, 0~360,   0~360,  0~360     230~310  ; lon
 
 if ( $#argv >= 4 ) then
    set sdate = ${1}
@@ -62,7 +64,7 @@ echo "This script is not utilizing PBS"
 #------------------------------------------
 
 # FILELIST
-set  FILELIST = ( obs_diag )
+set  FILELIST = ( obs_diag advance_time )
 foreach fn ( $FILELIST )
    if ( ! -x $fn ) then
       echo ${LINK} ${EXE_DIR}/${fn} .
@@ -179,7 +181,7 @@ set time_anl_mm   = `echo $time_anl | cut -c5-6`
 set time_anl_dd   = `echo $time_anl | cut -c7-8`
 set time_anl_hh   = `echo $time_anl | cut -c9-10`
 
-  cat >! dart.sed << EOF
+cat >! dart.sed << EOF
   /obs_sequence_name/c\
    obs_sequence_name = '${obs_file}'
   /first_bin_center /c\
@@ -187,6 +189,25 @@ set time_anl_hh   = `echo $time_anl | cut -c9-10`
   /last_bin_center /c\
    last_bin_center = ${time_anl_yyyy},${time_anl_mm},${time_anl_dd},${time_anl_hh},00,00
 EOF
+
+   if ( ${SEPARATE_DOMAIN} == "true" ) then
+
+cat >> dart.sed << EOF
+  /nregions/c\
+   nregions  = 5
+  /lonlim1/c\
+   lonlim1   =   0.0,   0.0,   0.0,   0.0, 230.0
+  /lonlim2/c\
+   lonlim2   = 360.0, 360.0, 360.0, 360.0, 310.0
+  /latlim1/c\
+   latlim1   = -80.0,  20.0, -80.0, -20.0,  20.0
+  /latlim2/c\
+   latlim2   =  80.0,  80.0, -20.0,  20.0,  55.0
+  /reg_name/c\
+   reg_names = 'GLOBAL', 'NH', 'SH', 'TR', 'CONUS'
+EOF
+   endif
+
 sed -f dart.sed ${RUN_DIR}/${NML_DART} >! input.nml
 
 if ( ${NML_DART} != input.nml ) then

@@ -5,6 +5,7 @@
 #       : shell script that can be used to create an 
 #         initial MPAS ensemble forecast from prep_initial_ens_ic.tcsh 
 #         so the background forecasts are available for cycling
+#       - Dec 2024: updated to support 'da_state/invariant' stream
 #
 ########################################################################
 
@@ -65,7 +66,7 @@
 
 #  Update namelist.atmosphere
   # IF REGIONAL
-  set FLAG_REGIONAL  = false
+  set FLAG_REGIONAL  = false 
   # Initial Spinup FCST
   set FLAG_RESTART   = false
   set FLAG_DACYCLING = false
@@ -75,7 +76,6 @@
      set FLAG_JEDI_DA     = false
   else
   # use 'da_state' + 'invariant' stream
-  # to do
      set FLAG_JEDI_DA      = true
   endif
 
@@ -98,15 +98,56 @@
   /config_jedi_da/c\
   config_jedi_da = ${FLAG_JEDI_DA}
 EOF
+
+  if ( $USE_LEN_DISP == "true" ) then
+  cat >> script.sed << EOF
+/&nhyd_model/a \
+  config_len_disp = ${LEN_DISP}
+EOF
+  endif
+
   sed -f script.sed ${RUN_DIR}/${NML_MPAS} >! ${NML_MPAS}
+
+cat >! sst.sed << EOF
+   /config_sst_update /c\
+    config_sst_update = ${SST_UPDATE}
+EOF
+mv $NML_MPAS namelist.sst
+sed -f sst.sed namelist.sst >! $NML_MPAS
+
+if ( $SST_UPDATE == true ) then
+  set fsst = `sed -n '/<stream name=\"surface\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
+              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
+  ${LINK} ${SST_DIR}/${SST_FNAME} $fsst         || exit
+else
+  echo NO SST_UPDATE...
+endif
 
   # clean out any old rsl files if exist
   if ( -e log.0000.out ) ${REMOVE} log.*
+
+  if ( $USE_RESTART == "true" ) then  #  PBS queuing system
 
   cat >! streams.sed << EOF
 /<immutable_stream name="input"/,/<\/*immutable_stream>/ {
 s/filename_template="init.nc"/filename_template="${ic_file}"/ }
 EOF
+
+  else
+      # link IC file as invariant file here
+      set invariant_file = ${MPAS_GRID}.invariant.nc
+
+      ln -sf ${ic_file} ${invariant_file}
+
+  cat >! streams.sed << EOF
+/<immutable_stream name="invariant"/,/<\/*immutable_stream>/ {
+s/filename_template="init.nc"/filename_template="${invariant_file}"/ }
+/<immutable_stream name="input"/,/<\/*immutable_stream>/ {
+s/filename_template="afterda_mpasout.nc"/filename_template="${ic_file}"/ }
+EOF
+
+  endif
+
   sed -f streams.sed ${RUN_DIR}/${STREAM_ATM}  >! ${STREAM_ATM}
 
   #  Run MPAS for the specified amount of time 

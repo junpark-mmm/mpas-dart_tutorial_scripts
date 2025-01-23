@@ -174,9 +174,13 @@ EOF
 #  # (assuming start_from_restart = .true. in input.nml)
 #  #------------------------------------------------------
 #  if USE_RESTART
-  set frst = `sed -n '/<stream name=\"da_restart\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${RUN_DIR}/${STREAM_ATM} | \
-              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
-# else (DA_STATE)
+  if ( $USE_RESTART == "true" ) then  #  da_restart streams
+       set frst = `sed -n '/<stream name=\"da_restart\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${RUN_DIR}/${STREAM_ATM} | \
+                   grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
+  else # da_state
+       set frst = `sed -n '/<immutable_stream name=\"da_state\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${RUN_DIR}/${STREAM_ATM} | \
+                   grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
+  endif
 
   set f_rst = ${frst}`echo ${anal_utc} | sed -e 's/:/\./g'`.nc     # bkg
   set f_anl = analysis.`echo ${f_rst} | cut -d . -f2-`             # dart anl
@@ -354,5 +358,3 @@ echo "duration_secs = $length_time"
 # $URL$
 # $Revision$
 # $Date$
-
-

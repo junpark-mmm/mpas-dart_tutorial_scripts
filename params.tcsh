@@ -23,10 +23,12 @@ set       N_CPUS = 36		# Number of cpus per node (default = 36)
 set      N_PROCS = 16		# Number of mpi processors for MPAS (=> MODEL_NODES * N_PROCS for graph.info)
 set N_PROCS_ANAL = 16		# Number of mpi processors for filter
 set   QUEUE_MPAS = develop  	# queue for mpas
+set   QUEUE_PRIORITY_MPAS = economy     # queue priority for mpas job (when queue is 'main')
 set     MEM_MPAS = 16           # memory for MPAS per node (GB) ; 240km ~ 8 GB
 set    TIME_INIT = 00:50:00     # wall clock time for initial BKG forecast at PBS
 set    TIME_MPAS = 00:10:00	# wall clock time for short forecast during DA at PBS
 set  QUEUE_FILTER = develop  	# queue for filter
+set  QUEUE_PRIORITY_FILTER = economy   # queue priority for mpas job (when queue is 'main')
 set   MEM_FILTER = 64           # memory for filter per node (GB)       ~ 12 GB
 set  TIME_FILTER = 00:30:00	# wall clock time for mpi filter runs
 
@@ -65,6 +67,11 @@ set        VTABLE = Vtable.${EXT_DATA_TYPE}
 set   USE_RESTART = true        # true  : use Restart file at streams
                                 # false : use invariant and da_state file at streams; not implmented yet
                                 #         invariant stream is supported after v8.1.0? (will be updated later)
+set   USE_LEN_DISP = false     # true  :        add 'config_len_disp' at namelist.atmosphere
+                              # false : do not add 'config_len_disp' at namelist.atmopshere
+                              #  this is required when using high-resolution or variable-resolution global grid
+
+set  LEN_DISP = 27000         # Finest scale in mesh (unit: meter)
 
 # Directories
 set ENS_DIR      = member

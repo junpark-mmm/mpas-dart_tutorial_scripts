@@ -257,7 +257,10 @@ while ( $time_anl <= $time_end )
       echo "#PBS -o ${OUTPUT_DIR}/logs/${time_anl}/${job_name}.log\"              >> filter.sed
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> filter.sed
       echo "#PBS -q ${QUEUE_FILTER}\"                                             >> filter.sed
-      echo "#PBS -l walltime=${TIME_INIT}\"                                       >> filter.sed
+      if ( ${QUEUE_FILTER} == "main" ) then
+         echo "#PBS -l job_priority=${QUEUE_PRIORITY_FILTER}\"                    >> filter.sed
+      endif
+      echo "#PBS -l walltime=${TIME_FILTER}\"                                     >> filter.sed
       echo "#PBS -l select=${FILTER_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS_ANAL}:mem=${MEM_FILTER}GB\" \
                                                                                   >> filter.sed
       echo "#=================================================================="  >> filter.sed
@@ -318,7 +321,10 @@ while ( $time_anl <= $time_end )
       echo "#PBS -o ${OUTPUT_DIR}/logs/${time_anl}/mpas_advance.e${num}.log\"     >> advance.sed
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
       echo "#PBS -q ${QUEUE_MPAS}\"                                               >> advance.sed
-      echo "#PBS -l walltime=${TIME_INIT}\"                                       >> advance.sed
+      if ( ${QUEUE_MPAS} == "main" ) then
+         echo "#PBS -l job_priority=${QUEUE_PRIORITY_MPAS}\"                      >> advance.sed
+      endif
+      echo "#PBS -l walltime=${TIME_MPAS}\"                                       >> advance.sed
       echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
                                                                                   >> advance.sed
       echo "#=================================================================="  >> advance.sed

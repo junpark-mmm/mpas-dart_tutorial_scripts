@@ -187,6 +187,9 @@ while ( $n <= $ENS_SIZE )
       echo "#PBS -o ${OUTPUT_DIR}/logs/${idate}/init_mpas_${num}.log\"            >> advance.sed
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
       echo "#PBS -q ${QUEUE_MPAS}\"                                               >> advance.sed
+      if ( ${QUEUE_MPAS} == "main" ) then
+         echo "#PBS -l job_priority=${QUEUE_PRIORITY_MPAS}\"                      >> advance.sed
+      endif
       echo "#PBS -l walltime=${TIME_INIT}\"                                       >> advance.sed
       echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
                                                                                   >> advance.sed
@@ -249,6 +252,9 @@ while ( $n <= $ENS_SIZE )
       echo "#PBS -o ${OUTPUT_DIR}/logs/${idate}/init_mpas_${num}.log\"            >> advance.sed
       echo "#PBS -A ${PROJ_NUMBER}\"                                              >> advance.sed
       echo "#PBS -q ${QUEUE_MPAS}\"                                               >> advance.sed
+      if ( ${QUEUE_MPAS} == "main" ) then
+         echo "#PBS -l job_priority=${QUEUE_PRIORITY_MPAS}\"                      >> advance.sed
+      endif
       echo "#PBS -l walltime=${TIME_INIT}\"                                       >> advance.sed
       echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
                                                                                   >> advance.sed
