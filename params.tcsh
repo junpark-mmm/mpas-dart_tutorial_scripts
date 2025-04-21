@@ -12,7 +12,7 @@
 ########################################################################################
 # General configuration 
 #
-set EXPERIMENT_NAME = may2019    # Change #
+set EXPERIMENT_NAME = regional_may2019    # Change #
 
 # PBS setup
 set   RUN_IN_PBS = no           # Run on derecho using PBS? yes or no    # Change #
@@ -35,10 +35,10 @@ set  TIME_FILTER = 00:30:00	# wall clock time for mpi filter runs
 set    HPSS_SAVE = no           # Backup in HPSS? yes or no. If yes, edit below.
 
 # Ensemble configuration
-set    MPAS_GRID = x1.10242  	# All grid parameters will be changed based on this.
+set    MPAS_GRID = conus  	# All grid parameters will be changed based on this.
 set     ENS_SIZE = 10 	 	# Ensemble size
 set     DT_MPAS  = 300    	# timestep for MPAS
-set     LEN_DISP = 5000.        # Finest scale (not used for now)
+
 set ADAPTIVE_INF = true         # adaptive_inflation - If true, this script only supports
                                 # spatially-varying state space prior inflation.
                                 # And you also need to edit inf_sd_initial, inf_damping,
@@ -59,19 +59,23 @@ set   SST_UPDATE = false
 set   SST_FNAME  = ${MPAS_GRID}.sfc_update.nc
 
 # First Guess (for cold-start runs and initial ensemble)
-set EXT_DATA_TYPE = GFS         # EXTERNAL DATA TYPE : GFS or GFSENS(GEFS) 
+set EXT_DATA_TYPE = GFSENS      # EXTERNAL DATA TYPE : GFS or GFSENS(GEFS) 
                                 # for GFS,  DART will be run to add perturbations to GFS 
                                 # for GEFS, will use external data from GEFS ensemble
                                   
 set        VTABLE = Vtable.${EXT_DATA_TYPE}
-set   USE_RESTART = true        # true  : use Restart file at streams
+set   USE_RESTART = false       # true  : use Restart file at streams
                                 # false : use invariant and da_state file at streams; not implmented yet
                                 #         invariant stream is supported after v8.1.0? (will be updated later)
-set   USE_LEN_DISP = false     # true  :        add 'config_len_disp' at namelist.atmosphere
-                              # false : do not add 'config_len_disp' at namelist.atmopshere
-                              #  this is required when using high-resolution or variable-resolution global grid
+set   USE_LEN_DISP = false      # true  :        add 'config_len_disp' at namelist.atmosphere
+                                # false : do not add 'config_len_disp' at namelist.atmopshere
+                                #  this is required when using high-resolution or variable-resolution global grid
 
-set  LEN_DISP = 27000         # Finest scale in mesh (unit: meter)
+set  LEN_DISP = 60000           # Finest scale in mesh (unit: meter)
+
+set  USE_REGIONAL = true       # true  : use regional MPAS-A;
+                                # false : use global MPAS-A
+set  LBC_VARS = "lbc_qv, lbc_theta, lbc_rho, lbc_u" # LBC variables to update
 
 # Directories
 set ENS_DIR      = member

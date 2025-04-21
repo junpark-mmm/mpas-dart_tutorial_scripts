@@ -15,7 +15,7 @@
 ##############################################################################################
 
 #set echo
-set SEPARATE_DOMAIN = true # extend verification domains (5 in default; see line #197)
+set SEPARATE_DOMAIN = false # extend verification domains (5 in default; see line #197)
                            # global,   NH,    SH,   Tropic, and CONUS
 	                   # -80~80, 20~80, -80~-20, -20~20,     20~55   ; lat
 	                   #  0~360, 0~360,   0~360,  0~360     230~310  ; lon

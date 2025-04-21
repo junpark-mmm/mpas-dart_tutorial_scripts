@@ -126,6 +126,76 @@ foreach fn ( $FILELIST )
    endif
 end 
 
+   if ( ${USE_REGIONAL} == "true" ) then
+      foreach fn ( update_bc )
+         if ( ! -x $fn ) then
+            echo ${COPY} ${EXE_DIR}/${fn} .
+                 ${COPY} ${EXE_DIR}/${fn} .
+            if ( ! $status == 0 ) then
+               echo ABORT\: We cannot find required executable dependency $fn.
+               exit
+            endif
+         endif
+      end
+
+      foreach fn ( prep_ens_lbc.tcsh )
+         if ( ! -r $fn ) then
+            echo ${COPY} ${CSH_DIR}/${fn} .
+                 ${COPY} ${CSH_DIR}/${fn} .
+            if ( ! $status == 0 ) then
+               echo ABORT\: We cannot find required script $fn.
+               exit
+            endif
+         endif
+      end
+
+      if ( ! -x ungrib.exe ) then
+         ${COPY} ${WPS_DIR}/ungrib.exe .
+         ${COPY} ${WPS_DIR}/link_grib.csh .
+         if ( ! $status == 0 ) then
+            echo ABORT\: We cannot find required script $fn.
+            exit
+         endif
+      endif
+
+      if ( ! -r ${NML_WPS} ) then
+         ${COPY} ${TEMPLATE_DIR}/${NML_WPS} .
+         if ( ! $status == 0 ) then
+            echo ABORT\: We cannot find required script $fn.
+            exit
+         endif
+      endif
+
+      if ( ! -r Vtable ) then
+         ${COPY} ${WPS_DIR}/ungrib/Variable_Tables/${VTABLE} Vtable
+         if ( ! $status == 0 ) then
+            echo ABORT\: We cannot find required script $fn.
+            exit
+         endif
+      endif
+      
+      foreach fn ( ${NML_INIT} )
+         if ( ! -r ${fn} ) then
+            ${COPY} ${TEMPLATE_DIR}/${fn} .
+         endif
+         if ( ! $status == 0 ) then
+            echo ABORT\: We cannot find required script $fn.
+            exit
+         endif
+      end
+
+      foreach fn ( ${STREAM_INIT} )
+         if ( ! -r ${fn} || -z $fn ) then
+            ${COPY} ${TEMPLATE_DIR}/${fn} .
+         endif
+         if ( ! $status == 0 ) then
+            echo ABORT\: We cannot find required script $fn.
+            exit
+        endif
+      end
+
+   endif
+
 if ( ! -d MPAS_RUN ) then
 
    if ( ! -d $MPAS_DIR ) then
@@ -271,7 +341,7 @@ while ( $time_anl <= $time_end )
     sed -f filter.sed assimilate.tcsh >! assimilate.pbs
     qsub assimilate.pbs
     sleep 60
-    #${REMOVE} filter.sed assimilate.pbs
+    ${REMOVE} filter.sed assimilate.pbs
 #
 #    # Wait until the job is finished.
     set is_there = `qstat | grep $jobn | wc -l`
@@ -295,6 +365,78 @@ while ( $time_anl <= $time_end )
 #
   ${REMOVE} filter_started filter_done
   echo Filter is done for Cycle at ${time_anl}
+
+  # if regional, create LBCs for cycling forecast hour
+  if ( ${USE_REGIONAL} == "true" ) then
+
+     # start loop for members for ensemble LBC generation.
+     if ( ${EXT_DATA_TYPE} == "GFS" ) then
+         echo "when using GFS, a single LBC job is required"
+         echo "However, LBC from a single GFS is not desirable"
+         set n = 0
+	 stop
+     else if ( ${EXT_DATA_TYPE} == "GFSENS" ) then
+         set n = 1
+     endif
+
+     while ( $n <= $ENS_SIZE )
+
+        set num = `printf "%02d" $n` # two-digit integer like 01, 02, 03, ...
+        set job_name = "make_mpaslbc.${num}"
+        set jobn = `echo $job_name | cut -c1-15`  # Stupid cheyenne cannot show the full job name.
+  
+        if ( $RUN_IN_PBS == "yes" ) then  #  PBS queuing system
+         # derecho
+
+      echo "2i\"                                                                  >! prep_lbc.sed
+      echo "#==================================================================\" >> prep_lbc.sed
+      echo "#PBS -N ${job_name}\"                                                 >> prep_lbc.sed
+      echo "#PBS -j oe\"                                                          >> prep_lbc.sed 
+      echo "#PBS -o ${OUTPUT_DIR}/logs/${time_anl}/init_lbc_mpas_${num}.log\"     >> prep_lbc.sed
+      echo "#PBS -A ${PROJ_NUMBER}\"                                              >> prep_lbc.sed
+      echo "#PBS -q ${QUEUE_MPAS}\"                                               >> prep_lbc.sed
+      if ( ${QUEUE_MPAS} == "main" ) then
+         echo "#PBS -l job_priority=${QUEUE_PRIORITY_MPAS}\"                      >> prep_lbc.sed
+      endif
+      echo "#PBS -l walltime=${TIME_MPAS}\"                                       >> prep_lbc.sed
+      echo "#PBS -l select=${MODEL_NODES}:ncpus=${N_CPUS}:mpiprocs=${N_PROCS}:mem=${MEM_MPAS}GB\" \
+                                                                                  >> prep_lbc.sed
+      echo "#=================================================================="  >> prep_lbc.sed
+      echo 's%${1}%'"${num}%g"                                                    >> prep_lbc.sed
+      echo 's%${2}%'"${time_anl}%g"                                               >> prep_lbc.sed
+      echo 's%${3}%'"${intv_hr}%g"                                                >> prep_lbc.sed
+      echo 's%${4}%'"${fn_param}%g"                                               >> prep_lbc.sed
+
+      sed -f prep_lbc.sed ./prep_ens_lbc.tcsh >! prep_ens_lbc.pbs
+      qsub prep_ens_lbc.pbs
+      ${REMOVE}  prep_initial_ens_ic.pbs prep_lbc.sed
+
+    else
+
+      ./prep_ens_lbc.tcsh $num ${time_anl} ${intv_hr} $fn_param >! ${OUTPUT_DIR}/logs/${time_anl}/lbc_mpas_${num}.log
+
+    endif
+
+    @ n++
+
+    end
+
+    if ( $RUN_IN_PBS == yes ) then
+      sleep 60
+
+    # Check if all members are done advancing model.
+      set is_all_done = `qstat | grep ${jobn} | wc -l`
+      while ( $is_all_done > 0 )
+         sleep 30
+         set is_all_done = `qstat | grep ${jobn} | wc -l`
+      end
+      date
+      sleep 30
+      echo LBC generation for ${num} member on $time_anl is complete
+
+    endif
+
+  endif
 #
 #  #------------------------------------------------------
 #  # 8. Advance model for each member

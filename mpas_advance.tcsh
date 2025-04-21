@@ -33,6 +33,9 @@
   ${LINK} ${RUN_DIR}/advance_time                      .   || exit 1
   ${LINK} ${RUN_DIR}/*graph*                           .   || exit 1             
 
+  if ( ${USE_REGIONAL} == "true" ) then
+     ${LINK} ${RUN_DIR}/update_bc                      .   || exit 1
+  endif
 
 #  Determine the initial, final and run times for the MPAS integration
   set curr_yyyy = `echo $idate | cut -c1-4` 
@@ -75,15 +78,55 @@
        endif
    endif
 
+  if ( ${USE_REGIONAL} == "true" ) then
+# to do: check if LBC files exist and then copy
+    set count_lbc = `ls -1 ${INIT_DIR}/${idate}/${ENS_DIR}${ensemble_member}/lbc* | wc | awk '{ print $1}'`
+    if ( ${count_lbc} >= 1 ) then 
+       ${LINK} ${INIT_DIR}/${idate}/${ENS_DIR}${ensemble_member}/lbc* .
+    else
+       echo "Cannot find lbc files from ${INIT_DIR}"
+       exit
+    endif
+
+    # tutorial domain (~ 60 km) may be not require hydrometeor LBCs
+    #set LBC_VARS = "lbc_qv, lbc_theta, lbc_rho, lbc_u"
+    #set lbc_update_from_reconstructed_winds = ".false." # obsolete
+    #set lbc_update_winds_from_increments    = ".false." # obsolete
+    
+    ls -1 ${ic_file} > filter_in.txt
+    set first_lbc_file = `ls -1 lbc*.nc | head -1`
+    ${REMOVE} ${first_lbc_file}
+    ${COPY} ${INIT_DIR}/${idate}/${ENS_DIR}${ensemble_member}/${first_lbc_file} .
+
+    if ( $USE_RESTART == "false" ) then  # also copy invariant file = IC file used for initial forecast
+        ln -sf ${invariant_file} init.nc
+    else
+        ln -sf ${ic_file} init.nc
+    endif
+
+    ls -1 ${first_lbc_file} > boundary_inout.txt
+
+    cat >! update_bc.sed << EOF
+    /mpas_lbc_variables/c\
+    mpas_lbc_variables = ${LBC_VARS}
+EOF
+
+    ${MOVE} ${NML_DART} ${NML_DART}.temp
+    sed -f update_bc.sed ${NML_DART}.temp >! ${NML_DART}             || exit 2
+    ${REMOVE} script.sed ${NML_DART}.temp
+
+    ./update_bc
+    echo "Updated LBC using update_bc in MPAS-DART"
+
+  endif
+
 #  Update namelist.atmosphere
-  # IF REGIONAL
-  set FLAG_REGIONAL  = false
-  # Initial Spinup FCST
+  # FCST during DA cycling
   set FLAG_DACYCLING = true
 
   if ( $USE_RESTART == "true" ) then
   # use traditional 'restart' stream
-     set FLAG_JEDI_DA     = false
+     set FLAG_JEDI_DA   = false
      set FLAG_RESTART   = true
   else
   # use 'da_state' + 'invariant' stream
@@ -98,7 +141,7 @@
   /config_run_duration/c\
   config_run_duration = '$intv_utc'
   /config_apply_lbcs/c\
-  config_apply_lbcs = ${FLAG_REGIONAL}
+  config_apply_lbcs = ${USE_REGIONAL}
   /config_do_restart/c\
   config_do_restart = ${FLAG_RESTART}
   /config_do_DAcycling/c\
@@ -127,14 +170,6 @@ EOF
 mv $NML_MPAS namelist.sst
 sed -f sst.sed namelist.sst >! $NML_MPAS
 
-if ( $SST_UPDATE == true ) then
-  set fsst = `sed -n '/<stream name=\"surface\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
-              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
-  ${LINK} ${SST_DIR}/${SST_FNAME} $fsst         || exit
-else
-  echo NO SST_UPDATE...
-endif
-
   # clean out any old rsl files if exist
   if ( -e log.0000.out ) ${REMOVE} log.*
 
@@ -156,7 +191,25 @@ EOF
 
   endif
 
+    # The script is tested with 6-hourly update of SST
+  # if you want to change the interval, modify the below hard-coded value
+  if ( $SST_UPDATE == true ) then
+  set SST_UPDATE_SECONDS = 21600
+  cat >> streams.sed << EOF
+/<stream name="surface"/,/<\/stream>/ {
+s/input_interval="none"/input_interval="${SST_UPDATE_SECONDS}"/ }
+EOF
+  endif
+
   sed -f streams.sed ${RUN_DIR}/${STREAM_ATM}  >! ${STREAM_ATM}
+
+if ( $SST_UPDATE == true ) then
+  set fsst = `sed -n '/<stream name=\"surface\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
+              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
+  ${LINK} ${SST_DIR}/${SST_FNAME} $fsst         || exit
+else
+  echo "NO SST_UPDATE..."
+endif
 
   #  Run MPAS for the specified amount of time 
 
@@ -187,7 +240,13 @@ EOF
   ${COPY} -r ${fout} ${target_dir}
   ${COPY} -r log.atmosphere.0000.out ${OUTPUT_DIR}/logs/${idate}/spinup_fcst${ensemble_member}.${idate}.f${fcst_hour}.out
 # 
-  foreach rfile ( `ls -1 mpasout.*.nc history.*.nc restart.*.nc diag.*.nc` )
+  if ( $USE_REGIONAL == "true" ) then  #  PBS queuing system
+     set ncfilelist=`ls -1 mpasout.*.nc history.*.nc restart.*.nc diag.*.nc lbc.*.nc ` 
+  else
+     set ncfilelist=`ls -1 mpasout.*.nc history.*.nc restart.*.nc diag.*.nc `
+  endif 
+
+  foreach rfile ( ${ncfilelist} )
     if ( $rfile != $fout )  ${REMOVE} $rfile
   end
 # 

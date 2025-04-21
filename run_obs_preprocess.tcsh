@@ -193,8 +193,10 @@ set sfc_elevation_tol        = 100.0
 set overwrite_ncep_sfc_qc    = .true.
 set overwrite_ncep_satwnd_qc = .true.
 set windowing_int_hour       = 1.
-set increase_bdy_error       = .false.
-set obsdistbdy               = 90000.0
+set increase_bdy_error       = .true.
+set maxobsfac                = 2.5
+set obsdistbdy               = 300000.0
+set obs_boundary             = 0.0
 
   cat >! dart.sed << EOF
   /file_name_input /c\
@@ -219,6 +221,10 @@ set obsdistbdy               = 90000.0
    increase_bdy_error = ${increase_bdy_error}
   /obsdistbdy /c\
    obsdistbdy = ${obsdistbdy}
+  /maxobsfac/c\
+   maxobsfac = ${maxobsfac}
+  /obs_boundary/c\
+   obs_boundary = ${obs_boundary}
 EOF
 sed -f dart.sed ${RUN_DIR}/${NML_DART} >! input.nml
 

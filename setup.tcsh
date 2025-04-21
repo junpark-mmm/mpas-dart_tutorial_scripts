@@ -34,11 +34,21 @@ mkdir -p ${RUN_DIR} ${OBS_DIR} ${OUTPUT_DIR} ${CSH_DIR} ${EXE_DIR} ${EXTM_DIR} $
 
   echo
   echo "Copy MPAS-DART executables from ${DART_DIR}"
-  foreach fn ( "closest_member_tool" "filter" "model_mod_check" "perfect_model_obs" "perturb_single_instance" \
+  if ( ${USE_REGIONAL} == "true" ) then
+     set dart_exe_list = ( "closest_member_tool" "filter" "model_mod_check" "perfect_model_obs" "perturb_single_instance" \
                "wakeup_filter" "advance_time" "create_fixed_network_seq" "create_obs_sequence"                \
                "fill_inflation_restart" "obs_common_subset" "obs_diag" "obs_selection"                        \
                "obs_seq_coverage" "obs_seq_to_netcdf" "obs_seq_verify" "obs_sequence_tool"                    \
                "mpas_dart_obs_preprocess" "update_bc" "update_mpas_states" )
+  else
+     set dart_exe_list = ( "closest_member_tool" "filter" "model_mod_check" "perfect_model_obs" "perturb_single_instance" \
+               "wakeup_filter" "advance_time" "create_fixed_network_seq" "create_obs_sequence"                \
+               "fill_inflation_restart" "obs_common_subset" "obs_diag" "obs_selection"                        \
+               "obs_seq_coverage" "obs_seq_to_netcdf" "obs_seq_verify" "obs_sequence_tool"                    \
+               "mpas_dart_obs_preprocess" "update_mpas_states" )
+  endif
+
+  foreach fn ( ${dart_exe_list} )
      if ( ! -r ${DART_DIR}/models/mpas_atm/work/${fn} ) then
         echo ABORT\: setup.tcsh could not find required readable dependency ${fn}
         exit 1
@@ -50,8 +60,14 @@ mkdir -p ${RUN_DIR} ${OBS_DIR} ${OUTPUT_DIR} ${CSH_DIR} ${EXE_DIR} ${EXTM_DIR} $
 # 
 # will Copy scripts from shell_script at DART_DIR
   echo "Copy MPAS-DART job scrpts from ${DART_DIR}"
-  foreach fn ( "params.tcsh" "driver_initial_ens.tcsh" "driver_dart_advance.tcsh" "mpas_first_advance.tcsh" "mpas_advance.tcsh" \
-               "assimilate.tcsh" "download.tcsh" "prep_initial_ens_ic.tcsh" "run_obs_preprocess.tcsh" "run_obs_diag.tcsh" )
+  if ( ${USE_REGIONAL} == "true" ) then
+     set sh_list = ( "params.tcsh" "driver_initial_ens.tcsh" "driver_dart_advance.tcsh" "mpas_first_advance.tcsh" "mpas_advance.tcsh" \
+                     "assimilate.tcsh" "download.tcsh" "prep_initial_ens_ic.tcsh" "run_obs_preprocess.tcsh" "run_obs_diag.tcsh" "prep_ens_lbc.tcsh" )
+  else
+     set sh_list = ( "params.tcsh" "driver_initial_ens.tcsh" "driver_dart_advance.tcsh" "mpas_first_advance.tcsh" "mpas_advance.tcsh" \
+                     "assimilate.tcsh" "download.tcsh" "prep_initial_ens_ic.tcsh" "run_obs_preprocess.tcsh" "run_obs_diag.tcsh" )
+  endif
+  foreach fn ( ${sh_list} )
      ## Todo ## final job scripts will be placed into DART_DIR/models/mpas_atm/shell_scripts
      #if ( ! -r ${DART_DIR}/models/mpas_atm/shell_scripts/${fn} ) then
      #   echo ABORT\: setup.tcsh could not find required readable dependency ${fn}
@@ -68,18 +84,25 @@ mkdir -p ${RUN_DIR} ${OBS_DIR} ${OUTPUT_DIR} ${CSH_DIR} ${EXE_DIR} ${EXTM_DIR} $
   echo
   echo "Download tutorial data and untar them at ${BASE_DIR}"
   echo "However, it is currently not viable to download tutorial data at script"
-  echo "unless a specific tool is employed from google drive."
+  echo "unless a specific tool is employed from google drive at terminal."
   echo
-  echo "please download it from web_broswer and place it to ${SCRIPTS_DIR} for now"
-  echo "https://drive.google.com/file/d/175dxvoQki3CN8-fnayQV_EBYb3mvQTxj/view?usp=sharing"
-  echo
+  # this is for global mpas-dart tutorial material ; need to upload
+  #  echo "please download it from web_broswer and place it to ${SCRIPTS_DIR} for now"
+  #echo "https://drive.google.com/file/d/175dxvoQki3CN8-fnayQV_EBYb3mvQTxj/view?usp=sharing"
+  #echo
 
   # This will be placed into google drive link
-  set FNAME_TUTORIAL = tutorial_data_202412.tgz
+  if ( ${USE_REGIONAL} == "true" ) then
+      set FNAME_TUTORIAL = regional_template.tgz
+  else
+      set FNAME_TUTORIAL = tutorial_data_202412.tgz
+  endif
   if ( ! -e ${SCRIPTS_DIR}/${FNAME_TUTORIAL} ) then
      echo ABORT\: ${FNAME_TUTORIAL} is not available.
      echo Please place it to this directory in the first hand
-     echo if you are using derecho, copy /glade/derecho/scratch/junpark/tutorial_data_202412.tgz
+     echo if you are using derecho,
+     echo copy /glade/derecho/scratch/junpark/tutorial_data_202412.tgz for global
+     echo copy copy /glade/derecho/scratch/junpark/202504/mpas-dart_tutorial_scripts/regional_template.tgz for regional
      exit 1
   else
      ${COPY} -r ${SCRIPTS_DIR}/${FNAME_TUTORIAL} ${BASE_DIR}
