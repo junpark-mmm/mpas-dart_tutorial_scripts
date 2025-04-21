@@ -115,14 +115,6 @@ EOF
 mv $NML_MPAS namelist.sst
 sed -f sst.sed namelist.sst >! $NML_MPAS
 
-if ( $SST_UPDATE == true ) then
-  set fsst = `sed -n '/<stream name=\"surface\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
-              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
-  ${LINK} ${SST_DIR}/${SST_FNAME} $fsst         || exit
-else
-  echo NO SST_UPDATE...
-endif
-
   # clean out any old rsl files if exist
   if ( -e log.0000.out ) ${REMOVE} log.*
 
@@ -148,7 +140,25 @@ EOF
 
   endif
 
-  sed -f streams.sed ${RUN_DIR}/${STREAM_ATM}  >! ${STREAM_ATM}
+  # The script is tested with 6-hourly update of SST
+  # if you want to change the interval, modify the below hard-coded value
+  if ( $SST_UPDATE == true ) then
+  set SST_UPDATE_SECONDS = 21600
+  cat >> streams.sed << EOF
+/<stream name="surface"/,/<\/stream>/ {
+s/input_interval="none"/input_interval="${SST_UPDATE_SECONDS}"/ }
+EOF
+  endif
+
+  sed -f streams.sed ${RUN_DIR}/${STREAM_ATM}  >! ${STREAM_ATM}                                                                        
+
+if ( $SST_UPDATE == true ) then
+  set fsst = `sed -n '/<stream name=\"surface\"/,/\/>/{/Scree/{p;n};/##/{q};p}' ${STREAM_ATM} | \
+              grep filename_template | awk -F= '{print $2}' | awk -F$ '{print $1}' | sed -e 's/"//g'`
+  ${LINK} ${SST_DIR}/${SST_FNAME} $fsst         || exit
+else
+  echo "NO SST_UPDATE..."
+endif
 
   #  Run MPAS for the specified amount of time 
   @ ndecomp = $MODEL_NODES * $N_PROCS

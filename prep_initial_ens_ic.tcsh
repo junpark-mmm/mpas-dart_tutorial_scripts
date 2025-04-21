@@ -60,7 +60,8 @@
 #  Determine the initial time for the MPAS initialization
   set curr_yyyy = `echo $idate | cut -c1-4` 
   set curr_mm   = `echo $idate | cut -c5-6` 
-  set curr_dd   = `echo $idate | cut -c7-8` set curr_hh   = `echo $idate | cut -c9-10` 
+  set curr_dd   = `echo $idate | cut -c7-8` 
+  set curr_hh   = `echo $idate | cut -c9-10` 
   set curr_utc  = ${curr_yyyy}-${curr_mm}-${curr_dd}_${curr_hh}:00:00
 
   # Link grib file, run WPS ungrib program to convert into format that MPAS can use
@@ -194,7 +195,7 @@ EOF
 
       # run filter to add perturbations
       ./filter
-  else if
+  else
       echo "No need to run filter at this tep"
       echo "${EXT_DATA_TYPE} is employed here"
   endif
